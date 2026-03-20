@@ -132,7 +132,7 @@ print(all_samples[:3])
 # 7) Save to CSV
 # ------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
-output_path = BASE_DIR / "lhs_samples" / "sri_lanka" / "chiller_samples.csv"
+output_path = BASE_DIR / "data" / "lhs_samples" / "sri_lanka" / "chiller_samples.csv"
 output_path.parent.mkdir(parents=True, exist_ok=True)
 
 df_samples = pd.DataFrame(all_samples)
