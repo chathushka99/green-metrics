@@ -129,7 +129,7 @@ print(all_samples[:3])
 
 # Gets the absolute path to the 'green-metrics' folder
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
-output_path = BASE_DIR / "lhs_samples" / "usa" / "usa_ae_chiller_colo_samples.csv"
+output_path = BASE_DIR / "data" / "lhs_samples" / "usa" / "usa_ae_chiller_colo_samples.csv"
 output_path.parent.mkdir(parents=True, exist_ok=True)
 
 df_samples = pd.DataFrame(all_samples)

@@ -5,43 +5,51 @@ import lhsmdu
 import pandas as pd
 
 # ------------------------------------------------
-# 1) Base params for DX (only vector length matters)
+# 1) Base params (corrected)
 # ------------------------------------------------
 params_DX_base = [
     None, None, None,
-    0.81, 0.03, 0.03, 0.97,
-    5.8, 500, 0.675,
-    24.75, 20.25,
-    15.0, -1.5,
-    20, 60,
-    0.375
+    0.92,    # 3 UPS_e
+    0.03,    # 4 PD_lr
+    0.03,    # 5 L_percentage
+    0.95,    # 6 SHR
+    10.0,    # 7 delta_T_air
+    800,     # 8 Fan_Pressure_CRAC
+    0.675,   # 9 Fan_e_CRAC
+    27,      # 10 T_up (fixed)
+    18,      # 11 T_lw (fixed)
+    15,      # 12 dp_up (fixed)
+    -9,      # 13 dp_lw (fixed)
+    0.20,    # 14 RH_up (UPDATED)
+    0.60,    # 15 RH_lw (UPDATED)
+    0.0      # 16 pcop
 ]
 
 # ------------------------------------------------
-# 2) Case 10 (Small) ranges
+# 2) Parameter ranges (corrected)
 # ------------------------------------------------
 param_ranges = [
     None, None, None,
-    (0.90, 0.95),  # idx 3 (%)
-    (0.02, 0.04),  # idx 4 (%)
-    (0.02, 0.04),  # idx 5 (%)
-    (0.90, 1.00),  # idx 6 (%)
-    (8, 12),  # idx 7 (°C assumed)
-    (400, 600),  # idx 8 (Pa assumed)
-    (0.60, 0.75),  # idx 9 (%)
-    None,  # idx10 fixed 27
-    None,  # idx11 fixed 18
-    None,  # idx12 fixed 15
-    None,  # idx13 fixed -9
-    None,  # idx14 fixed 0.07
-    None,  # idx15 fixed 0.08
-    (-0.45, 0.20)  # idx16 (%)
+    (0.90, 0.95),   # 3 UPS_e
+    (0.02, 0.04),   # 4 PD_lr
+    (0.02, 0.04),   # 5 L_percentage
+    (0.90, 0.99),   # 6 SHR
+    (8.0, 12.0),    # 7 delta_T_air
+    (300, 1200),    # 8 Fan_Pressure_CRAC ✅ FIXED
+    (0.60, 0.75),   # 9 Fan_e_CRAC
+    None,           # 10 fixed
+    None,           # 11 fixed
+    None,           # 12 fixed
+    None,           # 13 fixed
+    (0.10, 0.30),   # 14 RH_up ✅ NOW VARIABLE
+    (0.54, 0.66),   # 15 RH_lw ✅ NOW VARIABLE
+    (-0.45, 0.20)   # 16 pcop
 ]
 
 assert len(params_DX_base) == len(param_ranges), "Length mismatch!"
 
 # ------------------------------------------------
-# 3) Latin Hypercube Sampling setup
+# 3) Extract active params
 # ------------------------------------------------
 active_ranges = []
 active_positions = []
@@ -54,16 +62,20 @@ for idx, r in enumerate(param_ranges):
 n_vars = len(active_ranges)
 n_samples = 50
 
-# Generate unit LHS samples in [0,1]
+# ------------------------------------------------
+# 4) LHS sampling
+# ------------------------------------------------
 unit_samples = np.array(lhsmdu.sample(n_vars, n_samples)).T
 
-# Scale to real ranges
+# ------------------------------------------------
+# 5) Scale
+# ------------------------------------------------
 mins = np.array([r[0] for r in active_ranges])
 maxs = np.array([r[1] for r in active_ranges])
 scaled = mins + (maxs - mins) * unit_samples
 
 # ------------------------------------------------
-# 4) Build full sample vectors
+# 6) Build dataset
 # ------------------------------------------------
 all_samples = []
 
@@ -76,15 +88,15 @@ for i in range(n_samples):
 all_samples = np.array(all_samples)
 
 print("Generated samples shape:", all_samples.shape)
+print(all_samples[:3])
 
 # ------------------------------------------------
-# 5) Save to CSV
+# 7) Save
 # ------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
-output_path = BASE_DIR / "lhs_samples" / "sri_lanka" / "dx_samples.csv"
+output_path = BASE_DIR / "data" / "lhs_samples" / "sri_lanka" / "dx_samples.csv"
 output_path.parent.mkdir(parents=True, exist_ok=True)
 
-df_samples = pd.DataFrame(all_samples)
-df_samples.to_csv(output_path, index=False)
+pd.DataFrame(all_samples).to_csv(output_path, index=False)
 
 print(f"Saved: {output_path}")
