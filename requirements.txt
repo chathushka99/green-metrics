@@ -1,0 +1,16 @@
+numpy==1.18.5
+scipy==1.4.1
+pandas==1.0.5
+scikit-learn==0.22.2
+CoolProp==6.6.0
+joblib==0.14.1
+threadpoolctl==2.1.0
+tqdm==4.46.0
+
+# Excel support for pandas
+openpyxl==3.0.5
+
+# Latin Hypercube Sampling support
+simplelhs==1.2.1
+lhsmdu==1.1
+pysampling==0.1.2
