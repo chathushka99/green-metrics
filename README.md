@@ -72,3 +72,4 @@ Legacy scripts under `src/pue_wue_scripts/` and `src/lhs_sample_generator/` dele
 
 - Project root is resolved by locating `pyproject.toml`; use `pip install -e .` from the clone so paths resolve correctly.
 - Simulation code lives in `green_metrics.simulation.dc`. Imports such as `simulation_functions.simulation_funs_dc` use a thin shim under `src/simulation_functions/` for compatibility.
+- This is an attempt to utilize https://github.com/nuoaleon/Data-Center-Water-footprint and all credit goes to @nuoaleon
