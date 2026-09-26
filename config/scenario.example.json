@@ -1,0 +1,13 @@
+{
+  "region": "custom",
+  "bounds_file": "config/lhs/custom/dx_bounds.csv",
+  "run_file": "config/lhs/custom/dx_run.csv",
+  "samples_file": "data/lhs_samples/custom/dx_samples.csv",
+  "weather_dir": "data/epw_files/custom",
+  "output_dir": "output/custom",
+  "model_dir": "data/pkl_files",
+  "sim_func": "PUE_WUE_DX",
+  "sheet_prefix": "DX",
+  "pue_column": "PUE_DX",
+  "wue_column": "WUE_DX"
+}
