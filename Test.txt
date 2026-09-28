@@ -1,0 +1,120 @@
+1. AI-powered Production Incident Assistant (very relevant for you)
+Problem: Application throws errors → engineers spend hours checking logs, code, tickets.
+AI integration:
+Collect:
+application logs
+stack traces
+recent deployments
+GitLab commits
+runbooks
+previous incidents
+Send context to the LLM
+Output:
+probable root cause
+impacted components
+related code location
+suggested fix
+similar past incidents
+Example:
+Error: NullPointerException at TradeProcessor.java:245
+AI response:
+Likely cause: new field added to TradeDto but mapper was not updated.
+Related commit: ABC123
+Check: TradeMapper.java line 80
+Similar incident: INC-456
+This is basically an AI SRE / RCA agent.
+Architecture:
+Rancher/Kubernetes
+        |
+     Logs
+        |
+  AI Agent Service
+        |
+ -------------------
+ |        |         |
+GitLab  Grafana  Jira
+        |
+     GPT Model
+        |
+ RCA Report
+2. Internal Application Knowledge Assistant (RAG)
+Very common in banks.
+Instead of asking:
+"Where is collateral calculation logic?"
+Developer asks:
+"How is haircut calculated for Japanese government bonds?"
+AI searches:
+Confluence
+architecture documents
+code comments
+PDFs
+API specs
+Then answers with references.
+Technology:
+Documents
+    |
+Embedding Model
+    |
+Vector DB
+    |
+LLM
+    |
+Chat Interface
+You could use:
+LangChain
+Spring AI
+OpenAI API
+Azure OpenAI
+Bedrock
+3. AI Code Review Assistant
+Before merge:
+GitLab MR created →
+AI checks:
+bugs
+security issues
+performance problems
+missing tests
+Example:
+"This database call is inside a loop. For 10,000 positions this creates 10,000 queries."
+Very useful for Java applications.
+4. Natural Language Interface for Operations
+Instead of users navigating screens:
+User:
+"Show me trades rejected yesterday because of settlement failure"
+AI:
+translates into:
+SELECT *
+FROM trades
+WHERE status='REJECTED'
+AND reason='SETTLEMENT'
+AND date = yesterday
+This is powerful but needs strict controls.
+5. AI Test Generation
+For Java:
+Input:
+public Trade processTrade(TradeDto dto)
+AI creates:
+JUnit tests
+edge cases
+mocks
+test data
+Could integrate into CI.
+6. Business Rule Explanation
+Financial systems often have complicated rules.
+User:
+"Why was this collateral call generated?"
+AI looks at:
+input data
+calculation rules
+previous decisions
+Explains:
+"The margin increased because FX exposure exceeded threshold."
+What I would build if I were in your position
+Considering your career goal (AI-aware Engineer/Architect) I would build this:
+"AI Engineering Assistant for Enterprise Java Applications"
+Features:
+Log RCA Agent
+Codebase Q&A using RAG
+PR review bot
+Incident summarizer
+Tech stack:
