@@ -1,4 +1,4 @@
-﻿"""Batch EPW simulation across districts and LHS samples."""
+"""Batch EPW simulation across districts and LHS samples."""
 
 from __future__ import annotations
 
@@ -13,17 +13,65 @@ from green_metrics.batch.registry import load_scenario, resolve_path
 from green_metrics.paths import project_root
 
 
+WEATHER_SUFFIXES = (".epw", ".csv")
+
+
 def read_epw(filepath: Path) -> pd.DataFrame:
+    """Read an EnergyPlus weather file: dry-bulb (C), RH (%), pressure (Pa)."""
     df = pd.read_csv(filepath, skiprows=8, header=None)
     df = df.iloc[:, [6, 8, 9]]
     df.columns = ["T_oa", "RH_oa", "P_oa"]
     return df
 
 
+def read_weather_csv(filepath: Path) -> pd.DataFrame:
+    """Read a generic hourly CSV with columns T_oa (C), RH_oa (%), P_oa (Pa)."""
+    df = pd.read_csv(filepath, encoding="utf-8-sig")
+    df.columns = [str(c).strip() for c in df.columns]
+    missing = {"T_oa", "RH_oa", "P_oa"}.difference(df.columns)
+    if missing:
+        raise ValueError(f"{filepath} is missing columns: {', '.join(sorted(missing))}")
+    return df[["T_oa", "RH_oa", "P_oa"]].astype(float)
+
+
+def read_weather(filepath: Path) -> pd.DataFrame:
+    if filepath.suffix.lower() == ".epw":
+        return read_epw(filepath)
+    return read_weather_csv(filepath)
+
+
+def simulate_sample(
+    fn,
+    weather_df: pd.DataFrame,
+    sample: pd.Series,
+    pue_column: str = "PUE",
+    wue_column: str = "WUE",
+    desc: Optional[str] = None,
+) -> pd.DataFrame:
+    """Run one parameter sample through ``fn`` for every weather row."""
+    params = sample.values.tolist()
+    results = []
+    for hour, t_oa, rh_oa, p_oa in tqdm(
+        weather_df[["T_oa", "RH_oa", "P_oa"]].itertuples(index=True, name=None),
+        total=len(weather_df),
+        desc=desc,
+        unit="hour",
+        disable=desc is None,
+    ):
+        params[0], params[1], params[2] = t_oa, rh_oa, p_oa
+        pue, wue = fn(params)[:2]
+        results.append([hour, t_oa, rh_oa, p_oa, pue, wue])
+    return pd.DataFrame(
+        results,
+        columns=["Hour", "T_oa (°C)", "RH_oa (%)", "P_oa (Pa)", pue_column, wue_column],
+    )
+
+
 def run_scenario(
     scenario_id: Optional[str] = None,
     config_file: Optional[Path] = None,
     root: Optional[Path] = None,
+    overwrite: bool = False,
 ) -> None:
     cfg = load_scenario(scenario_id, config_file)
     root = root or project_root()
@@ -66,46 +114,23 @@ def run_scenario(
     epw_files = sorted(
         path
         for path in epw_dir.iterdir()
-        if path.is_file() and path.suffix.lower() == ".epw"
+        if path.is_file() and path.suffix.lower() in WEATHER_SUFFIXES
     )
     if not epw_files:
-        raise ValueError(f"No .epw files found in: {epw_dir}")
+        raise ValueError(f"No .epw or .csv weather files found in: {epw_dir}")
     for epw_path in epw_files:
         district = epw_path.stem
         output_path = out_dir / f"{district}.xlsx"
-        if output_path.exists():
-            print(f"SKIP: {district} (output exists)")
+        if output_path.exists() and not overwrite:
+            print(f"SKIP: {district} (output exists; use --overwrite to redo)")
             continue
         print(f"RUN: {district}")
-        weather_df = read_epw(epw_path)
+        weather_df = read_weather(epw_path)
         with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
             for idx, sample in samples.iterrows():
-                results = []
-                desc = f"{cfg.sheet_prefix} sample {idx + 1}"
-                for row in tqdm(
-                    weather_df.itertuples(index=True),
-                    total=len(weather_df),
-                    desc=desc,
-                    unit="hour",
-                ):
-                    hour = row.Index
-                    t_oa = row.T_oa
-                    rh_oa = row.RH_oa
-                    p_oa = row.P_oa
-                    p = sample.values.tolist()
-                    p[0], p[1], p[2] = t_oa, rh_oa, p_oa
-                    res = fn(p)
-                    results.append([hour, t_oa, rh_oa, p_oa, res[0], res[1]])
-                df_out = pd.DataFrame(
-                    results,
-                    columns=[
-                        "Hour",
-                        "T_oa (°C)",
-                        "RH_oa (%)",
-                        "P_oa (Pa)",
-                        cfg.pue_column,
-                        cfg.wue_column,
-                    ],
+                df_out = simulate_sample(
+                    fn, weather_df, sample, cfg.pue_column, cfg.wue_column,
+                    desc=f"{cfg.sheet_prefix} sample {idx + 1}",
                 )
                 sheet_name = f"{cfg.sheet_prefix}_{idx + 1}"
                 df_out.to_excel(writer, sheet_name=sheet_name, index=False)

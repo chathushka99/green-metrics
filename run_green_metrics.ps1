@@ -1,89 +1,62 @@
+<#
+ Create .venv (Python 3.12), install dependencies, then sample + simulate.
+ Usage:
+   .\run_green_metrics.ps1 -Scenario usa_chiller
+   .\run_green_metrics.ps1 -Config config\scenarios\my_site.json [-Root D:\data] [-Overwrite]
+ Setup only (no run):  .\run_green_metrics.ps1 -SetupOnly
+#>
 param(
     [string]$Scenario,
     [string]$Config,
-    [string]$Root = $PSScriptRoot
+    [string]$Root = $PSScriptRoot,
+    [string]$PythonVersion = "3.12",
+    [switch]$Overwrite,
+    [switch]$SetupOnly
 )
-
 $ErrorActionPreference = "Stop"
-$Root = [System.IO.Path]::GetFullPath($Root)
-Set-Location $Root
+$Project = $PSScriptRoot
+Set-Location $Project
+if ($Scenario -and $Config) { throw "Specify either -Scenario or -Config, not both." }
 
-if ($Scenario -and $Config) {
-    throw "Specify either -Scenario or -Config, not both."
-}
-
-$launcher = Get-Command py.exe -ErrorAction SilentlyContinue
-if (-not $launcher) {
-    Write-Host "CPython 3.7 was not found. Install CPython 3.7.9 from:"
-    Write-Host "https://www.python.org/downloads/release/python-379/"
-    Write-Host "Select the Python Launcher during installation, then rerun this script."
-    Start-Process "https://www.python.org/downloads/release/python-379/"
-    throw "Install CPython 3.7.9 and rerun run_green_metrics.bat."
-}
-
-& $launcher.Source -3.7 --version
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "The Python Launcher is installed, but CPython 3.7 is not available."
-    Write-Host "Install CPython 3.7.9 from https://www.python.org/downloads/release/python-379/"
-    Start-Process "https://www.python.org/downloads/release/python-379/"
-    throw "Install CPython 3.7.9 and rerun run_green_metrics.bat."
-}
-
-$venv = Join-Path $Root ".venv"
-$venvPython = Join-Path $venv "Scripts\python.exe"
-if (-not (Test-Path $venvPython)) {
-    & $launcher.Source -3.7 -m venv $venv
-    if ($LASTEXITCODE -ne 0) {
-        throw "Could not create the virtual environment at $venv."
+$venvPython = Join-Path $Project ".venv\Scripts\python.exe"
+$needVenv = -not (Test-Path $venvPython)
+if (-not $needVenv) {
+    $v = & $venvPython -c "import sys; print('%d.%d' % sys.version_info[:2])"
+    if ($v -notin @("3.10", "3.11", "3.12", "3.13")) {
+        throw ".venv uses Python $v (supported: 3.10-3.13). Delete .venv and rerun."
     }
 }
 
-if (-not (Test-Path $venvPython)) {
-    throw "The virtual environment was not created successfully: $venvPython"
-}
-
-$venvVersion = & $venvPython --version
-if ($venvVersion -notmatch "^Python 3\.7\.") {
-    throw "$venv uses $venvVersion; this project requires Python 3.7. Rename or remove .venv and rerun."
-}
-
-Write-Host "Installing the pinned project dependencies..."
-& $venvPython -m pip install --upgrade "pip<24.1"
-if ($LASTEXITCODE -ne 0) {
-    throw "Could not install a Python 3.7-compatible pip version."
-}
-
-& $venvPython -m pip install -e .
-if ($LASTEXITCODE -ne 0) {
-    throw "Project installation failed. Review the pip error above."
-}
-
-$cliArgs = @()
-if ($Config) {
-    $configPath = $Config
-    if (-not [System.IO.Path]::IsPathRooted($configPath)) {
-        $configPath = Join-Path $Root $configPath
+if ($needVenv) {
+    if (Get-Command uv -ErrorAction SilentlyContinue) {
+        # uv downloads Python privately; nothing is installed system-wide.
+        uv venv --python $PythonVersion .venv
+    } elseif ((Get-Command py -ErrorAction SilentlyContinue) -and ((py -$PythonVersion --version 2>$null) -match "Python")) {
+        py -$PythonVersion -m venv .venv
+    } else {
+        throw "Python $PythonVersion not found. Follow docs/SETUP_GUIDE.md (install uv or Python $PythonVersion), then rerun."
     }
-    $cliArgs += @("--config", [System.IO.Path]::GetFullPath($configPath))
-}
-else {
-    if (-not $Scenario) {
-        $Scenario = "sri_lanka_dx"
-    }
-    $cliArgs += @("--scenario", $Scenario)
-}
-$cliArgs += @("--root", $Root)
-
-Write-Host "Generating LHS samples..."
-& $venvPython -m green_metrics sample @cliArgs
-if ($LASTEXITCODE -ne 0) {
-    throw "Sample generation failed. Review the error above."
 }
 
-Write-Host "Running EPW simulations..."
-& $venvPython -m green_metrics simulate @cliArgs
-if ($LASTEXITCODE -ne 0) {
-    throw "Simulation failed. Review the error above."
+Write-Host "Installing dependencies..."
+if (Get-Command uv -ErrorAction SilentlyContinue) {
+    uv pip install --python $venvPython -r requirements.txt -e .
+} else {
+    & $venvPython -m pip install --upgrade pip
+    & $venvPython -m pip install -r requirements.txt -e .
 }
+if ($LASTEXITCODE -ne 0) { throw "Dependency installation failed." }
+if ($SetupOnly) { Write-Host "Environment ready."; return }
 
-Write-Host "Finished. Results are in the configured output directory."
+if (-not ($Scenario -or $Config)) { $Scenario = "sri_lanka_dx" }
+$cli = @()
+if ($Config) { $cli += @("--config", (Resolve-Path $Config).Path) } else { $cli += @("--scenario", $Scenario) }
+$cli += @("--root", $Root)
+
+& $venvPython -m green_metrics sample @cli
+if ($LASTEXITCODE -ne 0) { throw "Sample generation failed." }
+$sim = @("simulate") + $cli
+if ($Overwrite) { $sim += "--overwrite" }
+& $venvPython -m green_metrics @sim
+if ($LASTEXITCODE -ne 0) { throw "Simulation failed." }
+Write-Host "Finished. Results are in the scenario's output directory."

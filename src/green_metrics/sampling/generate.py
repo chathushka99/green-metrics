@@ -3,22 +3,21 @@
 from pathlib import Path
 from typing import Optional
 
-import lhsmdu
 import numpy as np
 import pandas as pd
+from scipy.stats import qmc
 
-from green_metrics.batch.registry import SCENARIOS, load_scenario, resolve_path
+from green_metrics.batch.registry import load_scenario, resolve_path
 from green_metrics.paths import project_root
 from green_metrics.sampling.lhs_spec import LHSSpec, load_lhs_spec, scenario_spec_paths
 
 
 def generate_lhs_rows(spec: LHSSpec):
-    if spec.random_seed is not None:
-        np.random.seed(spec.random_seed)
     n_vars = len(spec.active_positions)
     if n_vars == 0:
         raise ValueError("LHS spec has no varying parameters")
-    unit_samples = np.array(lhsmdu.sample(n_vars, spec.n_samples)).T
+    sampler = qmc.LatinHypercube(d=n_vars, seed=spec.random_seed)
+    unit_samples = sampler.random(spec.n_samples)
     scaled = spec.active_mins + (spec.active_maxs - spec.active_mins) * unit_samples
     rows = []
     for i in range(spec.n_samples):
