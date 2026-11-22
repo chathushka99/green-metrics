@@ -1,5 +1,6 @@
 import functools
 import pickle
+import warnings
 from pathlib import Path
 from typing import Optional
 
@@ -11,10 +12,21 @@ from green_metrics.paths import project_root
 _MODEL_DIR: Optional[Path] = None
 
 
+def _patch_legacy_gp(model) -> None:
+    """Make GP regressors pickled by scikit-learn < 0.23 usable in current releases.
+
+    Older versions only centred the targets (``normalize_y``); newer ones also
+    scale them by ``_y_train_std``. A scale of 1 reproduces the old behaviour.
+    """
+    if hasattr(model, "X_train_") and not hasattr(model, "_y_train_std"):
+        model._y_train_std = np.ones_like(np.asarray(getattr(model, "_y_train_mean", 0.0)))
+
+
 def load_gp_model(pkl_path: str):
     """Load a GP regressor from a pickle file.
 
     Relative model filenames are resolved in the configured model directory.
+    Only load pickle files from sources you trust.
     """
     model_path = Path(pkl_path)
     if model_path.is_absolute():
@@ -30,8 +42,14 @@ def load_gp_model(pkl_path: str):
             f"Please verify that the required .pkl files are present."
         )
 
-    with open(model_path, "rb") as f:
-        return pickle.load(f)
+    with warnings.catch_warnings():
+        # Pickles made with older scikit-learn releases raise a version warning;
+        # predictions are verified by tests/check_models.py.
+        warnings.simplefilter("ignore")
+        with open(model_path, "rb") as f:
+            model = pickle.load(f)
+    _patch_legacy_gp(model)
+    return model
 
 
 # COP models (lazy-loaded Gaussian-process regressors)
@@ -39,17 +57,17 @@ def load_gp_model(pkl_path: str):
 
 @functools.lru_cache(maxsize=1)
 def _cop_gp():
-    return load_gp_model("data/pkl_files/COP_2.pkl")
+    return load_gp_model("COP_2.pkl")
 
 
 @functools.lru_cache(maxsize=1)
 def _cop_dx_gp():
-    return load_gp_model("data/pkl_files/COP_DX.pkl")
+    return load_gp_model("COP_DX.pkl")
 
 
 @functools.lru_cache(maxsize=1)
 def _cop_air_gp():
-    return load_gp_model("data/pkl_files/COP_AC.pkl")
+    return load_gp_model("COP_AC.pkl")
 
 
 def configure_model_directory(model_dir: Path) -> None:

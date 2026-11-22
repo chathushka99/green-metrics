@@ -1,4 +1,4 @@
-﻿"""Scenario registry: LHS stems, sample filenames, simulation functions, Excel columns."""
+"""Scenario registry: LHS stems, sample filenames, simulation functions, Excel columns."""
 
 import json
 from dataclasses import dataclass
@@ -91,95 +91,32 @@ def resolve_path(root: Path, path: str) -> Path:
     return path if path.is_absolute() else root / path
 
 
-SCENARIOS: Dict[str, ScenarioConfig] = {
-    "sri_lanka_dx": ScenarioConfig(
-        region="sri_lanka",
-        bounds_stem="dx",
-        samples_csv="dx_samples.csv",
-        sim_func="PUE_WUE_DX",
-        sheet_prefix="DX",
-        pue_column="PUE_DX",
-        wue_column="WUE_DX",
-    ),
-    "sri_lanka_air_chiller": ScenarioConfig(
-        region="sri_lanka",
-        bounds_stem="air_chiller",
-        samples_csv="air_chiller_samples.csv",
-        sim_func="PUE_WUE_AIRChiller",
-        sheet_prefix="AIRChiller",
-        pue_column="PUE_AIRChiller",
-        wue_column="WUE_AIRChiller",
-    ),
-    "sri_lanka_chiller": ScenarioConfig(
-        region="sri_lanka",
-        bounds_stem="chiller",
-        samples_csv="chiller_samples.csv",
-        sim_func="PUE_WUE_Chiller",
-        sheet_prefix="Chiller",
-        pue_column="PUE_Chiller",
-        wue_column="WUE_Chiller",
-    ),
-    "sri_lanka_we_chiller_colo": ScenarioConfig(
-        region="sri_lanka",
-        bounds_stem="we_chiller_colo",
-        samples_csv="we_chiller_colo_samples.csv",
-        sim_func="PUE_WUE_WE_Chiller_Colo",
-        sheet_prefix="WE_Chiller",
-        pue_column="PUE_WE_Chiller",
-        wue_column="WUE_WE_Chiller",
-    ),
-    "sri_lanka_ae_chiller_colo": ScenarioConfig(
-        region="sri_lanka",
-        bounds_stem="ae_chiller_colo",
-        samples_csv="ae_chiller_colo_samples.csv",
-        sim_func="PUE_WUE_AE_Chiller_Colo",
-        sheet_prefix="AE_Chiller",
-        pue_column="PUE_AE_Chiller",
-        wue_column="WUE_AE_Chiller",
-    ),
-    "usa_dx": ScenarioConfig(
-        region="usa",
-        bounds_stem="dx",
-        samples_csv="usa_dx_samples.csv",
-        sim_func="PUE_WUE_DX",
-        sheet_prefix="DX",
-        pue_column="PUE_DX",
-        wue_column="WUE_DX",
-    ),
-    "usa_air_chiller": ScenarioConfig(
-        region="usa",
-        bounds_stem="air_chiller",
-        samples_csv="usa_air_chiller_samples.csv",
-        sim_func="PUE_WUE_AIRChiller",
-        sheet_prefix="AIRChiller",
-        pue_column="PUE_AIRChiller",
-        wue_column="WUE_AIRChiller",
-    ),
-    "usa_chiller": ScenarioConfig(
-        region="usa",
-        bounds_stem="chiller",
-        samples_csv="usa_chiller_samples.csv",
-        sim_func="PUE_WUE_Chiller",
-        sheet_prefix="Chiller",
-        pue_column="PUE_Chiller",
-        wue_column="WUE_Chiller",
-    ),
-    "usa_we_chiller_colo": ScenarioConfig(
-        region="usa",
-        bounds_stem="we_chiller_colo",
-        samples_csv="usa_we_chiller_colo_samples.csv",
-        sim_func="PUE_WUE_WE_Chiller_Colo",
-        sheet_prefix="WE_Chiller",
-        pue_column="PUE_WE_Chiller",
-        wue_column="WUE_WE_Chiller",
-    ),
-    "usa_ae_chiller_colo": ScenarioConfig(
-        region="usa",
-        bounds_stem="ae_chiller_colo",
-        samples_csv="usa_ae_chiller_colo_samples.csv",
-        sim_func="PUE_WUE_AE_Chiller_Colo",
-        sheet_prefix="AE_Chiller",
-        pue_column="PUE_AE_Chiller",
-        wue_column="WUE_AE_Chiller",
-    ),
+# (bounds stem, sim function, sheet prefix, result column suffix, sample-file stem)
+_MODELS = {
+    "dx": ("PUE_WUE_DX", "DX", "DX"),
+    "air_chiller": ("PUE_WUE_AIRChiller", "AIRChiller", "AIRChiller"),
+    "chiller": ("PUE_WUE_Chiller", "Chiller", "Chiller"),
+    "we_chiller_colo": ("PUE_WUE_WE_Chiller_Colo", "WE_Chiller", "WE_Chiller"),
+    "ae_chiller_colo": ("PUE_WUE_AE_Chiller_Colo", "AE_Chiller", "AE_Chiller"),
 }
+# region -> prefix of the sample file name (kept for the shipped data files)
+_REGIONS = {"sri_lanka": "", "usa": "usa_"}
+
+
+def _build_builtin() -> Dict[str, ScenarioConfig]:
+    out: Dict[str, ScenarioConfig] = {}
+    for region, file_prefix in _REGIONS.items():
+        for stem, (func, sheet, column) in _MODELS.items():
+            out[f"{region}_{stem}"] = ScenarioConfig(
+                region=region,
+                bounds_stem=stem,
+                samples_csv=f"{file_prefix}{stem}_samples.csv",
+                sim_func=func,
+                sheet_prefix=sheet,
+                pue_column=f"PUE_{column}",
+                wue_column=f"WUE_{column}",
+            )
+    return out
+
+
+SCENARIOS: Dict[str, ScenarioConfig] = _build_builtin()
